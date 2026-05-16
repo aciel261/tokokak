@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
+  // Client pakai anon key untuk refresh session
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -31,8 +32,19 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/auth/login?redirect=/admin', request.url))
     }
 
-    // Check if user is admin
-    const { data: adminUser } = await supabase
+    // Pakai service role key untuk bypass RLS saat cek tabel admin_users
+    const supabaseAdmin = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        cookies: {
+          getAll() { return request.cookies.getAll() },
+          setAll() {},
+        },
+      }
+    )
+
+    const { data: adminUser } = await supabaseAdmin
       .from('admin_users')
       .select('id')
       .eq('id', user.id)
